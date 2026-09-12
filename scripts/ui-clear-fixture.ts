@@ -1,0 +1,11 @@
+import {mkdtempSync} from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {Store} from '../server/database/store.js';
+const dir=mkdtempSync(path.join(os.tmpdir(),'signaldesk-clear-ui-'));
+const store=new Store(dir);
+store.addAccount('fixture',{displayName:'Fixture account',avatar:'',bio:'',url:'https://x.com/fixture',verified:false,verification:'valid'});
+store.setMeta('settings',{interval:13,feedUrl:'https://example.org'});
+store.close();
+process.env.DATA_DIR=dir;process.env.PORT='4342';
+await import('../server/index.js');

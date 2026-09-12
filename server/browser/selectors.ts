@@ -1,0 +1,16 @@
+export const selectors = {
+  account: '[data-testid="SideNav_AccountSwitcher_Button"]',
+  profile: 'a[data-testid="AppTabBar_Profile_Link"]',
+  tweet: 'article[data-testid="tweet"]',
+  text: '[data-testid="tweetText"]',
+  like: '[data-testid="like"]',
+  unlike: '[data-testid="unlike"]',
+  repost: '[data-testid="retweet"]',
+  undoRepost: '[data-testid="unretweet"]',
+  repostConfirm: '[data-testid="retweetConfirm"]',
+  reply: '[data-testid="reply"]',
+  editor: '[data-testid="tweetTextarea_0"]',
+  submit: '[data-testid="tweetButton"]',
+  dialog: '[role="dialog"]',
+  toast: '[data-testid="toast"]',
+} as const;
