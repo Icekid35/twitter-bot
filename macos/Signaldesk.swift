@@ -190,8 +190,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func serverEnded() {
         poll?.invalidate(); try? logHandle?.close()
-        if stopping { NSApp.reply(toApplicationShouldTerminate: true) }
-        else { fail("The server stopped. Another app may be using port \(baseURL?.port ?? 4318). See desktop.log in the Signaldesk Application Support folder for details.") }
+        if stopping { NSApp.reply(toApplicationShouldTerminate: true); return }
+        let logURL = dataURL.deletingLastPathComponent().appendingPathComponent("desktop.log")
+        let logContent = (try? String(contentsOf: logURL, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let logContent, !logContent.isEmpty {
+            let lines = logContent.components(separatedBy: "\n")
+            let snippet = lines.suffix(6).joined(separator: "\n")
+            fail("The server stopped unexpectedly:\n\n\(snippet)")
+        } else {
+            fail("The server stopped unexpectedly. Check desktop.log in Application Support/Signaldesk for details.")
+        }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let child = process, child.isRunning else { return .terminateNow }
