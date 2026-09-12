@@ -83,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         try files.createDirectory(at: dataURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let port = env["SIGNALDESK_PORT"] ?? "4318"
         guard let number = Int(port), (1024...65535).contains(number) else { throw startupError("The app port is invalid.") }
+        killProcessOnPort(port)
         baseURL = URL(string: "http://127.0.0.1:\(port)")!
         let logURL = dataURL.deletingLastPathComponent().appendingPathComponent("desktop.log")
         if files.fileExists(atPath: logURL.path) { try? files.removeItem(at: logURL) }
@@ -105,6 +106,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         try child.run()
         startedAt = Date()
         poll = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in self?.checkReady() }
+    }
+    func killProcessOnPort(_ port: String) {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        task.arguments = ["-ti", ":\(port)"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        try? task.run()
+        task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        if let output = String(data: data, encoding: .utf8) {
+            let pids = output.components(separatedBy: .whitespacesAndNewlines).compactMap { Int32($0) }
+            for pid in pids where pid > 1 && pid != getpid() {
+                kill(pid, SIGTERM)
+            }
+            if !pids.isEmpty {
+                Thread.sleep(forTimeInterval: 0.3)
+                for pid in pids where pid > 1 && pid != getpid() && kill(pid, 0) == 0 {
+                    kill(pid, SIGKILL)
+                }
+                Thread.sleep(forTimeInterval: 0.2)
+            }
+        }
     }
     func killExistingProcess(in directory: URL) {
         let lockURL = directory.appendingPathComponent("process.lock")

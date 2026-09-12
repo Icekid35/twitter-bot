@@ -1,4 +1,11 @@
 import "dotenv/config";
+import * as bufferModule from "node:buffer";
+if (typeof globalThis.File === "undefined" && "File" in bufferModule) {
+  (globalThis as Record<string, unknown>).File = (bufferModule as Record<string, unknown>).File;
+}
+if (typeof globalThis.FormData === "undefined" && "FormData" in bufferModule) {
+  (globalThis as Record<string, unknown>).FormData = (bufferModule as Record<string, unknown>).FormData;
+}
 import express from "express";
 import helmet from "helmet";
 import path from "node:path";
