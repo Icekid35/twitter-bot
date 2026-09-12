@@ -90,7 +90,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         files.createFile(atPath: logURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
         logHandle = try FileHandle(forWritingTo: logURL)
         let child = Process()
-        child.executableURL = resources.appendingPathComponent("node")
+        let systemNodes = ["/opt/homebrew/bin/node", "/usr/local/bin/node"]
+        var nodeExecutable = resources.appendingPathComponent("node")
+        for path in systemNodes {
+            if files.isExecutableFile(atPath: path) {
+                nodeExecutable = URL(fileURLWithPath: path)
+                break
+            }
+        }
+        child.executableURL = nodeExecutable
         child.currentDirectoryURL = resources.appendingPathComponent("runtime")
         child.arguments = ["--import", "tsx", "server/index.ts"]
         var childEnv = env
@@ -98,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         childEnv["DOTENV_CONFIG_PATH"] = configURL.path
         childEnv["NODE_ENV"] = "production"
         childEnv["SIGNALDESK_DESKTOP"] = "1"
-        childEnv["PATH"] = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        childEnv["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         child.environment = childEnv; child.standardOutput = logHandle; child.standardError = logHandle
         child.terminationHandler = { [weak self] _ in DispatchQueue.main.async { self?.serverEnded() } }
         lifetimePipe = Pipe(); child.standardInput = lifetimePipe!
