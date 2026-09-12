@@ -32,9 +32,28 @@ if (existsSync(lock)) {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ESRCH") alive = false;
   }
-  if (alive)
-    throw new Error("Signaldesk is already running for this data directory.");
-  unlinkSync(lock);
+  if (alive) {
+    try {
+      process.kill(pid, "SIGTERM");
+      const start = Date.now();
+      while (Date.now() - start < 2000) {
+        try {
+          process.kill(pid, 0);
+        } catch {
+          alive = false;
+          break;
+        }
+      }
+      if (alive) {
+        process.kill(pid, "SIGKILL");
+      }
+    } catch {
+      // Process already terminated or unable to kill
+    }
+  }
+  try {
+    unlinkSync(lock);
+  } catch {}
 }
 const fd = openSync(lock, "wx", 0o600);
 writeFileSync(fd, String(process.pid));

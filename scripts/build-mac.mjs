@@ -27,7 +27,11 @@ try {
   const png=path.join(temp,'icon.png'),iconset=path.join(temp,'Signaldesk.iconset');mkdirSync(iconset);
   run('xcrun',['swift','macos/Icon.swift',png]);
   for(const size of [16,32,128,256,512]) for(const scale of [1,2]) run('sips',['-z',String(size*scale),String(size*scale),png,'--out',path.join(iconset,`icon_${size}x${size}${scale===2?'@2x':''}.png`)]);
-  run('iconutil',['-c','icns',iconset,'-o',path.join(resources,'Signaldesk.icns')]);
+  try {
+    run('iconutil',['-c','icns',iconset,'-o',path.join(resources,'Signaldesk.icns')]);
+  } catch (err) {
+    console.warn('Warning: iconutil failed, continuing build without custom icns:', err.message);
+  }
   run('codesign',['--force','--deep','--sign','-',app]);
   run('codesign',['--verify','--deep','--strict',app]);
   console.log(`\nMac app built: ${app}\nNo workspace data or credentials are embedded in the app.`);

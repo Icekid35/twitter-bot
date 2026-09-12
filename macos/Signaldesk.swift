@@ -57,7 +57,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         if !files.fileExists(atPath: dataURL.path), env["SIGNALDESK_DATA_DIR"] == nil {
             let source = URL(fileURLWithPath: config["SourceProject"] as! String)
             let sourceData = source.appendingPathComponent("data")
-            if ownsLiveLock(sourceData) { throw startupError("Signaldesk is still running in Terminal. Stop it with Control-C, then open this app again. Your data has not been moved or cleared.") }
+            if ownsLiveLock(sourceData) {
+                killExistingProcess(in: sourceData)
+            }
             if files.fileExists(atPath: sourceData.appendingPathComponent("state.json").path) {
                 // Publish migration only after every required file was copied successfully.
                 let staging = support.appendingPathComponent("migration-\(UUID().uuidString)")
@@ -75,7 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try files.moveItem(at: staging, to: dataURL)
             }
         }
-        if ownsLiveLock(dataURL) { throw startupError("Another Signaldesk server is using this workspace. Quit that server before opening this app.") }
+        if ownsLiveLock(dataURL) {
+            killExistingProcess(in: dataURL)
+        }
         try files.createDirectory(at: dataURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let port = env["SIGNALDESK_PORT"] ?? "4318"
         guard let number = Int(port), (1024...65535).contains(number) else { throw startupError("The app port is invalid.") }
@@ -101,6 +105,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         try child.run()
         startedAt = Date()
         poll = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in self?.checkReady() }
+    }
+    func killExistingProcess(in directory: URL) {
+        let lockURL = directory.appendingPathComponent("process.lock")
+        guard let raw = try? String(contentsOf: lockURL, encoding: .utf8),
+              let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+              pid > 1 else { return }
+        if kill(pid, 0) == 0 {
+            kill(pid, SIGTERM)
+            for _ in 0..<20 {
+                if kill(pid, 0) != 0 { break }
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            if kill(pid, 0) == 0 {
+                kill(pid, SIGKILL)
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+        }
+        try? files.removeItem(at: lockURL)
     }
     func ownsLiveLock(_ directory: URL) -> Bool {
         guard let raw = try? String(contentsOf: directory.appendingPathComponent("process.lock"), encoding: .utf8), let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 else { return false }
